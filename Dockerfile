@@ -1,5 +1,5 @@
-# Use a maintained Go + Alpine tag compatible with the module toolchain
-FROM golang:1.25-alpine3.22
+# Use a glibc-based image so the prebuilt Bento4 Linux SDK can run
+FROM golang:1.25-bookworm
 
 # Set environment variables
 ENV PATH="$PATH:/bin/bash" \
@@ -7,7 +7,7 @@ ENV PATH="$PATH:/bin/bash" \
   PATH="$PATH:/opt/bento4/bin"
 
 # Install necessary packages including FFMPEG, Bash, and build tools
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y --no-install-recommends \
   ffmpeg \
   bash \
   make \
@@ -15,8 +15,10 @@ RUN apk add --no-cache \
   unzip \
   gcc \
   g++ \
-  scons \
-  git
+  git \
+  wget \
+  ca-certificates && \
+  rm -rf /var/lib/apt/lists/*
 
 # Install Bento4
 WORKDIR /tmp/bento4
