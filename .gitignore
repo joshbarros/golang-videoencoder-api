@@ -8,3 +8,6 @@ bucket-credentials.json
 bucket-credentials*.json
 *.pem
 *.key
+
+# Local data directories
+.pgdata/

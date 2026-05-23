@@ -1,5 +1,5 @@
-# Use a maintained Go + Alpine tag compatible with Go 1.22.x
-FROM golang:1.22-alpine3.18
+# Use a maintained Go + Alpine tag compatible with the module toolchain
+FROM golang:1.25-alpine3.22
 
 # Set environment variables
 ENV PATH="$PATH:/bin/bash" \
