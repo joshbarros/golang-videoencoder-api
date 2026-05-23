@@ -1,0 +1,10 @@
+# Environment files (keep sample template versioned)
+.env
+.env.*
+!.env.example
+
+# Local cloud credentials and secret keys
+bucket-credentials.json
+bucket-credentials*.json
+*.pem
+*.key

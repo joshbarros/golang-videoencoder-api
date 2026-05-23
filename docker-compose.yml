@@ -1,0 +1,35 @@
+services:
+
+  app:
+    platform: linux/amd64
+    build: .
+    volumes:
+      - .:/go/src
+    environment:
+      - GO111MODULE=on
+    depends_on:
+      - db
+      - rabbit
+
+  db:
+    image: postgres:15.2
+    restart: always
+    tty: true
+    volumes:
+      - .pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_DB=encoder
+    ports:
+      - "5432:5432"
+
+  rabbit:
+    image: "rabbitmq:3-management"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "SWQOKODSQALRPCLNMEQG"
+      RABBITMQ_DEFAULT_USER: "rabbitmq"
+      RABBITMQ_DEFAULT_PASS: "rabbitmq"
+      RABBITMQ_DEFAULT_VHOST: "/"
+    ports:
+      - "15672:15672"
+      - "5672:5672"
