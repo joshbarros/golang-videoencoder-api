@@ -2,23 +2,45 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"golang-videoencoder-api/internal/queue"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const defaultWorkerConcurrency = 1
+const (
+	defaultWorkerConcurrency = 1
+	minReconnectBackoff      = 1 * time.Second
+	maxReconnectBackoff      = 30 * time.Second
+)
 
-// Manager orchestrates worker goroutines and optionally bridges queue payloads.
+// Acknowledger confirms or rejects a consumed message after processing.
+type Acknowledger interface {
+	Ack() error
+	Nack(requeue bool) error
+}
+
+// Message is a unit of work for a worker: a raw payload plus an optional
+// acknowledger so the source message is confirmed (or dead-lettered) only
+// after processing finishes. Ack is nil for in-process/test dispatch.
+type Message struct {
+	Body []byte
+	Ack  Acknowledger
+}
+
+// Manager orchestrates worker goroutines and bridges queue deliveries.
 type Manager struct {
 	JobService *JobService
 	Workers    int
 	Processor  *Processor
 
-	MessageChannel chan []byte
+	MessageChannel chan Message
 	ResultChannel  chan JobWorkerResult
 }
 
@@ -31,7 +53,7 @@ func NewManager(jobService *JobService) *Manager {
 		JobService:     jobService,
 		Workers:        workers,
 		Processor:      NewProcessorFromEnv(jobService),
-		MessageChannel: make(chan []byte),
+		MessageChannel: make(chan Message, workers),
 		ResultChannel:  make(chan JobWorkerResult),
 	}
 }
@@ -74,14 +96,53 @@ func (m *Manager) Start() (stop func()) {
 	}
 }
 
-// Enqueue pushes a payload into the local worker input channel.
+// Enqueue pushes a raw payload into the local worker input channel without an
+// acknowledger (used for in-process dispatch and tests).
 func (m *Manager) Enqueue(payload []byte) {
-	m.MessageChannel <- payload
+	m.MessageChannel <- Message{Body: payload}
 }
 
-// RunQueueConsumer consumes messages from queue.Client and forwards payloads to workers.
-// Message acks are handled only after the payload is handed to the manager.
+// RunQueueConsumer streams deliveries to workers, reconnecting with backoff so
+// a dropped connection does not silently stop the service. It returns only
+// when ctx is cancelled.
 func (m *Manager) RunQueueConsumer(ctx context.Context, q *queue.Client, consumerName string) error {
+	backoff := minReconnectBackoff
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		err := m.consumeOnce(ctx, q, consumerName)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err == nil {
+			err = fmt.Errorf("delivery channel closed")
+		}
+		log.Printf("queue consumer interrupted: %v; reconnecting in %s", err, backoff)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(backoff):
+		}
+
+		if rerr := m.reconnect(q); rerr != nil {
+			log.Printf("queue reconnect failed: %v", rerr)
+			backoff = nextBackoff(backoff)
+			continue
+		}
+
+		log.Println("queue consumer reconnected")
+		backoff = minReconnectBackoff
+	}
+}
+
+// consumeOnce forwards deliveries to workers until the delivery channel closes
+// or ctx is cancelled. Each source message is acked/nacked by the worker that
+// handles it, not here.
+func (m *Manager) consumeOnce(ctx context.Context, q *queue.Client, consumerName string) error {
 	deliveries, err := q.Consume(consumerName, false)
 	if err != nil {
 		return err
@@ -95,12 +156,43 @@ func (m *Manager) RunQueueConsumer(ctx context.Context, q *queue.Client, consume
 			if !ok {
 				return nil
 			}
-			m.Enqueue(msg.Body)
-			if err := msg.Ack(false); err != nil {
-				log.Printf("ack error: %v", err)
+			select {
+			case m.MessageChannel <- Message{Body: msg.Body, Ack: deliveryAck{delivery: msg}}:
+			case <-ctx.Done():
+				// Shutting down before handoff: return the message to the queue.
+				_ = msg.Nack(false, true)
+				return ctx.Err()
 			}
 		}
 	}
+}
+
+// reconnect re-establishes the connection and re-declares the topology.
+func (m *Manager) reconnect(q *queue.Client) error {
+	if err := q.Reconnect(); err != nil {
+		return err
+	}
+	if _, err := q.Declare(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// deliveryAck adapts an amqp delivery to the Acknowledger interface.
+type deliveryAck struct {
+	delivery amqp.Delivery
+}
+
+func (a deliveryAck) Ack() error              { return a.delivery.Ack(false) }
+func (a deliveryAck) Nack(requeue bool) error { return a.delivery.Nack(false, requeue) }
+
+// nextBackoff doubles the backoff up to the configured ceiling.
+func nextBackoff(current time.Duration) time.Duration {
+	next := current * 2
+	if next > maxReconnectBackoff {
+		return maxReconnectBackoff
+	}
+	return next
 }
 
 func workerConcurrencyFromEnv() int {
