@@ -13,10 +13,10 @@ import (
 func TestNewJob(t *testing.T) {
 	video := domain.NewVideo()
 	video.ID = uuid.NewV4().String()
-	video.FilePath = "C://"
+	video.FilePath = "path"
 	video.CreatedAt = time.Now()
 
-	job, err := domain.NewJob("C://", "Converted", video)
+	job, err := domain.NewJob("path", "Converted", video)
 	require.NotNil(t, job)
 	require.Nil(t, err)
 }

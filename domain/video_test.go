@@ -23,7 +23,7 @@ func TestVideoIsISNotAnUuid(t *testing.T) {
 
 	video.ID = "123"
 	video.ResourceID = "test"
-	video.FilePath = "C://"
+	video.FilePath = "path"
 	video.CreatedAt = time.Now()
 
 	err := video.Validate()
@@ -36,7 +36,7 @@ func TestVideoValidation(t *testing.T) {
 
 	video.ID = uuid.NewV4().String()
 	video.ResourceID = "test"
-	video.FilePath = "C://"
+	video.FilePath = "path"
 	video.CreatedAt = time.Now()
 
 	err := video.Validate()
