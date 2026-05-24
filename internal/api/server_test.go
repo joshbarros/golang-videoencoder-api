@@ -132,6 +132,24 @@ func TestRequestBodyTooLarge(t *testing.T) {
 	require.Equal(t, http.StatusRequestEntityTooLarge, rec.Code)
 }
 
+func TestCreateVideoRejectsNulByte(t *testing.T) {
+	env := newTestEnv(t, nil)
+	// A NUL byte would fail the Postgres text insert; must be rejected as 400.
+	rec := do(t, env.handler, http.MethodPost, "/videos",
+		api.CreateVideoRequest{ResourceID: "bad\x00id", FilePath: "invite.mp4"})
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.NotContains(t, rec.Body.String(), "internal server error")
+}
+
+func TestRejectsTrailingJSON(t *testing.T) {
+	env := newTestEnv(t, nil)
+	req := httptest.NewRequest(http.MethodPost, "/videos",
+		strings.NewReader(`{"resource_id":"a","file_path":"b"}{"x":1}`))
+	rec := httptest.NewRecorder()
+	env.handler.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
 func TestGetVideo(t *testing.T) {
 	env := newTestEnv(t, nil)
 

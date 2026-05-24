@@ -32,6 +32,12 @@ func validUUID(s string) bool {
 	return err == nil
 }
 
+// containsNUL reports whether s holds a NUL byte. Postgres text/varchar columns
+// reject NUL, so it must be caught as a client error (400) rather than a DB 500.
+func containsNUL(s string) bool {
+	return strings.IndexByte(s, 0) >= 0
+}
+
 // handleHealthz godoc
 //
 //	@Summary		Liveness probe
@@ -90,6 +96,10 @@ func (s *Server) handleCreateVideo(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.ResourceID) > maxFieldLen || len(req.FilePath) > maxFieldLen {
 		writeError(w, http.StatusBadRequest, "resource_id and file_path must be at most 255 characters")
+		return
+	}
+	if containsNUL(req.ResourceID) || containsNUL(req.FilePath) {
+		writeError(w, http.StatusBadRequest, "fields must not contain null bytes")
 		return
 	}
 
@@ -167,6 +177,10 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "output_bucket_path is too long")
 		return
 	}
+	if containsNUL(req.OutputBucketPath) {
+		writeError(w, http.StatusBadRequest, "output_bucket_path must not contain null bytes")
+		return
+	}
 
 	// Reject early if the referenced video does not exist, instead of letting
 	// the message fail later and dead-letter.
@@ -238,6 +252,12 @@ func readJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 		} else {
 			writeError(w, http.StatusBadRequest, "invalid request body")
 		}
+		return false
+	}
+
+	// Reject trailing data after the JSON object (e.g. a double-pasted body).
+	if dec.More() {
+		writeError(w, http.StatusBadRequest, "unexpected data after JSON body")
 		return false
 	}
 	return true
