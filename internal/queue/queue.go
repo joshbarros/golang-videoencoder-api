@@ -9,11 +9,6 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const (
-	defaultQueueName = "video_jobs"
-	defaultRabbitURL = "amqp://rabbitmq:rabbitmq@rabbit:5672/"
-)
-
 // Client wraps RabbitMQ connection details used by publishers/consumers.
 type Client struct {
 	URL       string
@@ -23,22 +18,27 @@ type Client struct {
 	Channel    *amqp.Channel
 }
 
-// NewClient creates a queue client using env defaults when values are not provided.
+// NewClient creates an empty queue client for manual configuration.
 func NewClient() *Client {
+	return &Client{}
+}
+
+// NewClientFromEnv creates a queue client from required environment variables.
+func NewClientFromEnv() (*Client, error) {
 	queueName := os.Getenv("RABBITMQ_QUEUE")
 	if queueName == "" {
-		queueName = defaultQueueName
+		return nil, fmt.Errorf("RABBITMQ_QUEUE is required")
 	}
 
 	rabbitURL := os.Getenv("RABBITMQ_URL")
 	if rabbitURL == "" {
-		rabbitURL = defaultRabbitURL
+		return nil, fmt.Errorf("RABBITMQ_URL is required")
 	}
 
 	return &Client{
 		URL:       rabbitURL,
 		QueueName: queueName,
-	}
+	}, nil
 }
 
 // Connect opens the RabbitMQ connection and channel.
