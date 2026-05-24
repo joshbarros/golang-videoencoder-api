@@ -8,11 +8,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-// init configures govalidator to require struct fields by default.
-func init() {
-	govalidator.SetFieldsRequiredByDefault(true)
-}
-
 // Job represents a video processing execution and its current status.
 type Job struct {
 	ID               string    `json:"job_id" valid:"uuid" gorm:"type:uuid;primaryKey"`

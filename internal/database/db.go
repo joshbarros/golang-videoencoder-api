@@ -11,12 +11,12 @@ import (
 )
 
 // Database stores runtime configuration and the active DB connection.
+// The driver is selected by Env ("test" uses in-memory sqlite, anything else
+// uses Postgres).
 type Database struct {
 	Db            *gorm.DB
 	Dsn           string
 	DsnTest       string
-	DbType        string
-	DbTypeTest    string
 	Debug         bool
 	AutoMigrateDb bool
 	Env           string
@@ -31,7 +31,6 @@ func NewDb() *Database {
 func NewDbTest() *gorm.DB {
 	dbInstance := NewDb()
 	dbInstance.Env = "test"
-	dbInstance.DbTypeTest = "sqlite3"
 	dbInstance.DsnTest = ":memory:"
 	dbInstance.AutoMigrateDb = true
 	dbInstance.Debug = true
