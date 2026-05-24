@@ -77,6 +77,12 @@ func (c *Client) Reconnect() error {
 	return c.Connect()
 }
 
+// IsReady reports whether the connection and channel are open and usable.
+func (c *Client) IsReady() bool {
+	return c.Connection != nil && !c.Connection.IsClosed() &&
+		c.Channel != nil && !c.Channel.IsClosed()
+}
+
 // Declare creates the work queue along with a dead-letter exchange and queue.
 // Messages the consumer rejects (Nack without requeue) are routed to
 // "<queue>.dlq" instead of being discarded.

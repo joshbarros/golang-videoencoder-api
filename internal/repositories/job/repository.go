@@ -8,6 +8,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// ErrJobNotFound is returned by Find when no job matches the given id.
+var ErrJobNotFound = errors.New("job does not exist")
+
 // JobRepository defines persistence operations for jobs.
 type JobRepository interface {
 	Insert(job *domain.Job) (*domain.Job, error)
@@ -37,7 +40,7 @@ func (repository JobRepositoryDb) Find(id string) (*domain.Job, error) {
 	err := repository.Db.Preload("Video").First(&job, "id = ?", id).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf("job does not exist")
+		return nil, ErrJobNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("find job: %w", err)
