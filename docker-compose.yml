@@ -7,6 +7,9 @@ services:
       - .:/go/src
     environment:
       - GO111MODULE=on
+    ports:
+      # Host port overridable via HTTP_HOST_PORT (default 8080) to avoid conflicts.
+      - "${HTTP_HOST_PORT:-8080}:8080"
     depends_on:
       - db
       - rabbit

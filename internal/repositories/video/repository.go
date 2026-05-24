@@ -9,6 +9,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// ErrVideoNotFound is returned by Find when no video matches the given id.
+var ErrVideoNotFound = errors.New("video does not exist")
+
 // VideoRepository defines persistence operations for videos.
 type VideoRepository interface {
 	Insert(video *domain.Video) (*domain.Video, error)
@@ -46,7 +49,7 @@ func (repository VideoRepositoryDb) Find(id string) (*domain.Video, error) {
 	err := repository.Db.Preload("Jobs").First(&video, "id = ?", id).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf("video does not exist")
+		return nil, ErrVideoNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("find video: %w", err)

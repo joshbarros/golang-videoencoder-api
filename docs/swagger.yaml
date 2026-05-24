@@ -1,0 +1,239 @@
+basePath: /
+definitions:
+  api.CreateJobRequest:
+    properties:
+      output_bucket_path:
+        example: out/encoded/7d9b.../
+        type: string
+      video_id:
+        example: 7d9b0e0e-2c1a-4b3c-8a1f-1a2b3c4d5e6f
+        type: string
+    type: object
+  api.CreateVideoRequest:
+    properties:
+      file_path:
+        example: invite.mp4
+        type: string
+      resource_id:
+        example: campaign-42
+        type: string
+    type: object
+  api.EnqueueResponse:
+    properties:
+      output_bucket_path:
+        type: string
+      status:
+        example: queued
+        type: string
+      video_id:
+        type: string
+    type: object
+  api.ErrorResponse:
+    properties:
+      error:
+        example: video does not exist
+        type: string
+    type: object
+  api.HealthResponse:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
+  api.JobResponse:
+    properties:
+      created_at:
+        type: string
+      error:
+        type: string
+      id:
+        type: string
+      output_bucket_path:
+        type: string
+      status:
+        example: Completed
+        type: string
+      updated_at:
+        type: string
+      video_id:
+        type: string
+    type: object
+  api.VideoResponse:
+    properties:
+      created_at:
+        type: string
+      file_path:
+        type: string
+      id:
+        type: string
+      jobs:
+        items:
+          $ref: '#/definitions/api.JobResponse'
+        type: array
+      resource_id:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: 'HTTP control plane for the queue-based video encoding pipeline: register
+    videos, enqueue encode jobs, and track status. Processing happens asynchronously
+    on the worker.'
+  title: Golang Video Encoder API
+  version: "1.0"
+paths:
+  /healthz:
+    get:
+      description: Returns ok while the process is running.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.HealthResponse'
+      summary: Liveness probe
+      tags:
+      - health
+  /jobs:
+    post:
+      consumes:
+      - application/json
+      description: Publishes a job for the referenced video onto the work queue. Processing
+        is asynchronous; poll the job or video to track status.
+      parameters:
+      - description: Job to enqueue
+        in: body
+        name: job
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateJobRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/api.EnqueueResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Enqueue an encode job
+      tags:
+      - jobs
+  /jobs/{id}:
+    get:
+      parameters:
+      - description: Job ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.JobResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get a job's status
+      tags:
+      - jobs
+  /readyz:
+    get:
+      description: Returns ok when the database and queue are reachable.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.HealthResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Readiness probe
+      tags:
+      - health
+  /videos:
+    post:
+      consumes:
+      - application/json
+      description: Stores a source media reference that jobs can then encode.
+      parameters:
+      - description: Video to register
+        in: body
+        name: video
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateVideoRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.VideoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Register a source video
+      tags:
+      - videos
+  /videos/{id}:
+    get:
+      parameters:
+      - description: Video ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.VideoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get a video and its jobs
+      tags:
+      - videos
+swagger: "2.0"
