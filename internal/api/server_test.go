@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"golang-videoencoder-api/internal/api"
@@ -110,6 +111,25 @@ func TestCreateVideoValidation(t *testing.T) {
 	rec2 := httptest.NewRecorder()
 	env.handler.ServeHTTP(rec2, req)
 	require.Equal(t, http.StatusBadRequest, rec2.Code)
+}
+
+func TestCreateVideoOversizedField(t *testing.T) {
+	env := newTestEnv(t, nil)
+	// >255 chars must be rejected as 400, never reach the DB (no varchar overflow 500).
+	rec := do(t, env.handler, http.MethodPost, "/videos",
+		api.CreateVideoRequest{ResourceID: strings.Repeat("A", 300), FilePath: "invite.mp4"})
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.NotContains(t, rec.Body.String(), "SQLSTATE", "must not leak DB errors")
+}
+
+func TestRequestBodyTooLarge(t *testing.T) {
+	env := newTestEnv(t, nil)
+	// ~2 MiB body exceeds the 1 MiB cap -> 413, decoded lazily without buffering it all.
+	huge := `{"resource_id":"` + strings.Repeat("A", 2<<20) + `","file_path":"invite.mp4"}`
+	req := httptest.NewRequest(http.MethodPost, "/videos", strings.NewReader(huge))
+	rec := httptest.NewRecorder()
+	env.handler.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusRequestEntityTooLarge, rec.Code)
 }
 
 func TestGetVideo(t *testing.T) {

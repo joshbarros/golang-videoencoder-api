@@ -122,7 +122,9 @@ func main() {
 		if err := sqlDB.PingContext(ctx); err != nil {
 			return errors.New("database unavailable")
 		}
-		if !pub.IsReady() {
+		// EnsureReady reconnects the publisher if a broker outage closed it, so
+		// the readiness probe recovers the API without a process restart.
+		if err := pub.EnsureReady(); err != nil {
 			return errors.New("queue unavailable")
 		}
 		return nil

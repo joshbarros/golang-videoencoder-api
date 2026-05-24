@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -12,6 +13,15 @@ import (
 	videorepo "golang-videoencoder-api/internal/repositories/video"
 
 	uuid "github.com/satori/go.uuid"
+)
+
+const (
+	// maxBodyBytes caps request bodies to protect against oversized payloads.
+	maxBodyBytes = 1 << 20 // 1 MiB
+	// maxFieldLen matches the varchar(255) columns for resource_id / file_path.
+	maxFieldLen = 255
+	// maxPrefixLen bounds output_bucket_path (GCS object names cap at 1024 bytes).
+	maxPrefixLen = 1024
 )
 
 // validUUID reports whether s is a well-formed UUID. IDs are stored in uuid
@@ -63,12 +73,12 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 //	@Param			video	body		CreateVideoRequest	true	"Video to register"
 //	@Success		201		{object}	VideoResponse
 //	@Failure		400		{object}	ErrorResponse
+//	@Failure		413		{object}	ErrorResponse
 //	@Failure		500		{object}	ErrorResponse
 //	@Router			/videos [post]
 func (s *Server) handleCreateVideo(w http.ResponseWriter, r *http.Request) {
 	var req CreateVideoRequest
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	if !readJSON(w, r, &req) {
 		return
 	}
 
@@ -78,11 +88,14 @@ func (s *Server) handleCreateVideo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "resource_id and file_path are required")
 		return
 	}
+	if len(req.ResourceID) > maxFieldLen || len(req.FilePath) > maxFieldLen {
+		writeError(w, http.StatusBadRequest, "resource_id and file_path must be at most 255 characters")
+		return
+	}
 
-	video := &domain.Video{ResourceID: req.ResourceID, FilePath: req.FilePath}
-	created, err := s.videos.Insert(video)
+	created, err := s.videos.Insert(&domain.Video{ResourceID: req.ResourceID, FilePath: req.FilePath})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, "create video", err)
 		return
 	}
 
@@ -91,15 +104,15 @@ func (s *Server) handleCreateVideo(w http.ResponseWriter, r *http.Request) {
 
 // handleGetVideo godoc
 //
-//	@Summary		Get a video and its jobs
-//	@Tags			videos
-//	@Produce		json
-//	@Param			id	path		string	true	"Video ID (UUID)"
-//	@Success		200	{object}	VideoResponse
-//	@Failure		400	{object}	ErrorResponse
-//	@Failure		404	{object}	ErrorResponse
-//	@Failure		500	{object}	ErrorResponse
-//	@Router			/videos/{id} [get]
+//	@Summary	Get a video and its jobs
+//	@Tags		videos
+//	@Produce	json
+//	@Param		id	path		string	true	"Video ID (UUID)"
+//	@Success	200	{object}	VideoResponse
+//	@Failure	400	{object}	ErrorResponse
+//	@Failure	404	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Router		/videos/{id} [get]
 func (s *Server) handleGetVideo(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if !validUUID(id) {
@@ -113,7 +126,7 @@ func (s *Server) handleGetVideo(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, err.Error())
 			return
 		}
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, "get video", err)
 		return
 	}
 
@@ -131,12 +144,12 @@ func (s *Server) handleGetVideo(w http.ResponseWriter, r *http.Request) {
 //	@Success		202	{object}	EnqueueResponse
 //	@Failure		400	{object}	ErrorResponse
 //	@Failure		404	{object}	ErrorResponse
+//	@Failure		413	{object}	ErrorResponse
 //	@Failure		502	{object}	ErrorResponse
 //	@Router			/jobs [post]
 func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
 	var req CreateJobRequest
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	if !readJSON(w, r, &req) {
 		return
 	}
 
@@ -150,6 +163,10 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "video_id must be a UUID")
 		return
 	}
+	if len(req.OutputBucketPath) > maxPrefixLen {
+		writeError(w, http.StatusBadRequest, "output_bucket_path is too long")
+		return
+	}
 
 	// Reject early if the referenced video does not exist, instead of letting
 	// the message fail later and dead-letter.
@@ -158,13 +175,14 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, err.Error())
 			return
 		}
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, "create job: find video", err)
 		return
 	}
 
 	msg := job.JobWorkerMessage{VideoID: req.VideoID, OutputBucketPath: req.OutputBucketPath}
 	if err := s.publisher.PublishJSON(r.Context(), msg); err != nil {
-		writeError(w, http.StatusBadGateway, "failed to enqueue job: "+err.Error())
+		log.Printf("api: enqueue job: %v", err)
+		writeError(w, http.StatusBadGateway, "failed to enqueue job")
 		return
 	}
 
@@ -177,15 +195,15 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
 
 // handleGetJob godoc
 //
-//	@Summary		Get a job's status
-//	@Tags			jobs
-//	@Produce		json
-//	@Param			id	path		string	true	"Job ID (UUID)"
-//	@Success		200	{object}	JobResponse
-//	@Failure		400	{object}	ErrorResponse
-//	@Failure		404	{object}	ErrorResponse
-//	@Failure		500	{object}	ErrorResponse
-//	@Router			/jobs/{id} [get]
+//	@Summary	Get a job's status
+//	@Tags		jobs
+//	@Produce	json
+//	@Param		id	path		string	true	"Job ID (UUID)"
+//	@Success	200	{object}	JobResponse
+//	@Failure	400	{object}	ErrorResponse
+//	@Failure	404	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Router		/jobs/{id} [get]
 func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if !validUUID(id) {
@@ -199,16 +217,28 @@ func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, err.Error())
 			return
 		}
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, "get job", err)
 		return
 	}
 
 	writeJSON(w, http.StatusOK, toJobResponse(j))
 }
 
-// decodeJSON strictly decodes a JSON request body.
-func decodeJSON(r *http.Request, dst any) error {
+// readJSON decodes a size-limited JSON request body, writing the appropriate
+// error response and returning false if decoding fails.
+func readJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
-	return dec.Decode(dst)
+
+	if err := dec.Decode(dst); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
+		} else {
+			writeError(w, http.StatusBadRequest, "invalid request body")
+		}
+		return false
+	}
+	return true
 }
