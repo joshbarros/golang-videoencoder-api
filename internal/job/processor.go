@@ -1,17 +1,23 @@
 package job
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"golang-videoencoder-api/domain"
 	"golang-videoencoder-api/internal/upload"
 	"golang-videoencoder-api/internal/video"
 )
 
-// defaultUploadConcurrency bounds how many output files upload in parallel per job.
-const defaultUploadConcurrency = 4
+const (
+	// defaultUploadConcurrency bounds how many output files upload in parallel per job.
+	defaultUploadConcurrency = 4
+	// defaultProcessTimeout bounds the total time spent on a single job.
+	defaultProcessTimeout = 30 * time.Minute
+)
 
 // Processor runs the full media pipeline for a single job: mark processing,
 // download the source, fragment, encode to DASH, upload the output, clean up,
@@ -21,6 +27,7 @@ type Processor struct {
 	SourceBucket      string
 	OutputBucket      string
 	UploadConcurrency int
+	Timeout           time.Duration
 }
 
 // NewProcessorFromEnv builds a Processor from environment configuration.
@@ -30,7 +37,19 @@ func NewProcessorFromEnv(jobService *JobService) *Processor {
 		SourceBucket:      os.Getenv("VIDEO_SOURCE_BUCKET"),
 		OutputBucket:      os.Getenv("VIDEO_OUTPUT_BUCKET"),
 		UploadConcurrency: defaultUploadConcurrency,
+		Timeout:           processTimeoutFromEnv(),
 	}
+}
+
+// processTimeoutFromEnv reads PROCESS_TIMEOUT (Go duration, e.g. "45m") or
+// falls back to the default.
+func processTimeoutFromEnv() time.Duration {
+	if v := os.Getenv("PROCESS_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return defaultProcessTimeout
 }
 
 // Enabled reports whether the processor has everything it needs to run.
@@ -60,11 +79,18 @@ func (p *Processor) Run(job *domain.Job) error {
 	return nil
 }
 
-// process performs the media work for a single job.
+// process performs the media work for a single job within a bounded context.
 func (p *Processor) process(job *domain.Job) error {
 	if _, err := p.JobService.MarkProcessing(job.ID); err != nil {
 		return fmt.Errorf("mark processing: %w", err)
 	}
+
+	timeout := p.Timeout
+	if timeout <= 0 {
+		timeout = defaultProcessTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
 	videoService, err := video.NewVideoService()
 	if err != nil {
@@ -77,17 +103,17 @@ func (p *Processor) process(job *domain.Job) error {
 	}()
 	videoService.Video = job.Video
 
-	if err := videoService.Download(p.SourceBucket); err != nil {
+	if err := videoService.Download(ctx, p.SourceBucket); err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
-	if err := videoService.Fragment(); err != nil {
+	if err := videoService.Fragment(ctx); err != nil {
 		return fmt.Errorf("fragment: %w", err)
 	}
-	if err := videoService.Encode(); err != nil {
+	if err := videoService.Encode(ctx); err != nil {
 		return fmt.Errorf("encode: %w", err)
 	}
 
-	if err := p.uploadOutputs(job.Video.ID); err != nil {
+	if err := p.uploadOutputs(ctx, job); err != nil {
 		return fmt.Errorf("upload: %w", err)
 	}
 
@@ -100,28 +126,18 @@ func (p *Processor) process(job *domain.Job) error {
 	return nil
 }
 
-// uploadOutputs pushes the encoded output directory to the output bucket.
-func (p *Processor) uploadOutputs(videoID string) error {
+// uploadOutputs pushes the encoded output directory to the output bucket,
+// placing objects under the job's output bucket path.
+func (p *Processor) uploadOutputs(ctx context.Context, job *domain.Job) error {
 	videoUpload := upload.NewVideoUpload()
 	videoUpload.OutputBucket = p.OutputBucket
-	videoUpload.VideoPath = os.Getenv("localStoragePath") + "/" + videoID
+	videoUpload.OutputPrefix = job.OutputBucketPath
+	videoUpload.VideoPath = os.Getenv("localStoragePath") + "/" + job.Video.ID
 
 	concurrency := p.UploadConcurrency
 	if concurrency <= 0 {
 		concurrency = defaultUploadConcurrency
 	}
 
-	// doneUpload is buffered so ProcessUpload's completion send never blocks;
-	// that lets us call it synchronously and still read the outcome, and it
-	// avoids the deadlock on ProcessUpload's early-return error paths.
-	doneUpload := make(chan string, 1)
-	if err := videoUpload.ProcessUpload(concurrency, doneUpload); err != nil {
-		return err
-	}
-
-	if result := <-doneUpload; result != "upload complete" {
-		return fmt.Errorf("upload reported failure: %s", result)
-	}
-
-	return nil
+	return videoUpload.ProcessUpload(ctx, concurrency)
 }
