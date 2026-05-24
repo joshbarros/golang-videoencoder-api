@@ -19,20 +19,22 @@ Important note:
 
 ## Project Structure
 
-- `application/services/video/`
+- `internal/video/`
   - `service.go`: download, fragment, encode, cleanup
-- `application/services/upload/`
+- `internal/upload/`
   - `manager.go`: concurrent upload manager for output artifacts
-- `application/services/job/`
+- `internal/job/`
   - `service.go`, `worker.go`, `manager.go`: job lifecycle and worker contracts
-- `application/repositories/video/`
+- `internal/repositories/video/`
   - `repository.go`: persistence adapter for `Video`
-- `application/repositories/job/`
+- `internal/repositories/job/`
   - `repository.go`: persistence adapter for `Job`
 - `domain/`
   - core entities and validation (`Video`, `Job`)
-- `framework/database/`
+- `internal/database/`
   - database connection setup and test DB helper
+- `internal/queue/`
+  - RabbitMQ client wrapper
 - `cmd/main.go`
   - entrypoint placeholder
 
@@ -87,7 +89,7 @@ docker compose up -d
 ### 3) Run service tests (inside container)
 
 ```bash
-docker compose exec app /usr/local/go/bin/go test -v -count=1 ./application/services/video/... ./application/services/upload/... ./application/services/job/...
+docker compose exec app /usr/local/go/bin/go test -v -count=1 ./internal/video/... ./internal/upload/... ./internal/job/... ./internal/repositories/job/... ./internal/repositories/video/... ./internal/database/... ./internal/queue/...
 ```
 
 ### 4) Run full test suite (inside container)

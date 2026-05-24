@@ -1,10 +1,10 @@
 package jobrepo_test
 
 import (
-	jobrepo "golang-videoencoder-api/application/repositories/job"
-	videorepo "golang-videoencoder-api/application/repositories/video"
 	"golang-videoencoder-api/domain"
-	"golang-videoencoder-api/framework/database"
+	"golang-videoencoder-api/internal/database"
+	jobrepo "golang-videoencoder-api/internal/repositories/job"
+	videorepo "golang-videoencoder-api/internal/repositories/video"
 	"testing"
 	"time"
 

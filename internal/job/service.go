@@ -2,9 +2,9 @@ package job
 
 import (
 	"fmt"
-	jobrepo "golang-videoencoder-api/application/repositories/job"
-	videorepo "golang-videoencoder-api/application/repositories/video"
 	"golang-videoencoder-api/domain"
+	jobrepo "golang-videoencoder-api/internal/repositories/job"
+	videorepo "golang-videoencoder-api/internal/repositories/video"
 )
 
 const (

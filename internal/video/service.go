@@ -2,8 +2,8 @@ package video
 
 import (
 	"context"
-	videorepo "golang-videoencoder-api/application/repositories/video"
 	"golang-videoencoder-api/domain"
+	videorepo "golang-videoencoder-api/internal/repositories/video"
 	"log"
 	"os"
 	"os/exec"

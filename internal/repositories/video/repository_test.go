@@ -1,9 +1,9 @@
 package videorepo_test
 
 import (
-	videorepo "golang-videoencoder-api/application/repositories/video"
 	"golang-videoencoder-api/domain"
-	"golang-videoencoder-api/framework/database"
+	"golang-videoencoder-api/internal/database"
+	videorepo "golang-videoencoder-api/internal/repositories/video"
 	"testing"
 	"time"
 

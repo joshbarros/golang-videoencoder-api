@@ -1,10 +1,10 @@
 package video_test
 
 import (
-	videorepo "golang-videoencoder-api/application/repositories/video"
-	videosvc "golang-videoencoder-api/application/services/video"
 	"golang-videoencoder-api/domain"
-	"golang-videoencoder-api/framework/database"
+	"golang-videoencoder-api/internal/database"
+	videorepo "golang-videoencoder-api/internal/repositories/video"
+	videosvc "golang-videoencoder-api/internal/video"
 	"log"
 	"os"
 	"path/filepath"
@@ -21,12 +21,12 @@ const defaultTestBucket = "joshbarrostest-20260523-1"
 
 // init loads environment variables and configures GCP credentials for tests.
 func init() {
-	err := godotenv.Load("../../../.env")
+	err := godotenv.Load("../../.env")
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
-	credentialsPath, err := filepath.Abs("../../../bucket-credentials.json")
+	credentialsPath, err := filepath.Abs("../../bucket-credentials.json")
 	if err != nil {
 		log.Fatal(err)
 	}
