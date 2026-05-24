@@ -11,12 +11,14 @@ import (
 	"cloud.google.com/go/storage"
 )
 
+// VideoService orchestrates download, packaging, and cleanup for a video.
 type VideoService struct {
 	Video           *domain.Video
 	VideoRepository repositories.VideoRepository
 	storageClient   *storage.Client
 }
 
+// NewVideoService builds a VideoService with an initialized GCS client.
 func NewVideoService() (*VideoService, error) {
 	storageClient, err := storage.NewClient(context.Background())
 	if err != nil {
@@ -26,6 +28,7 @@ func NewVideoService() (*VideoService, error) {
 	return &VideoService{storageClient: storageClient}, nil
 }
 
+// Download fetches the source media from the provided GCS bucket into local storage.
 func (v *VideoService) Download(bucketName string) error {
 	ctx := context.Background()
 
@@ -51,6 +54,7 @@ func (v *VideoService) Download(bucketName string) error {
 	return nil
 }
 
+// Fragment generates a fragmented MP4 file from the downloaded media.
 func (v *VideoService) Fragment() error {
 	err := os.Mkdir(os.Getenv("localStoragePath")+"/"+v.Video.ID, os.ModePerm)
 	if err != nil {
@@ -72,6 +76,7 @@ func (v *VideoService) Fragment() error {
 	return nil
 }
 
+// Encode creates DASH output files from the fragmented input using Bento4.
 func (v *VideoService) Encode() error {
 	cmdArgs := []string{}
 	cmdArgs = append(cmdArgs, os.Getenv("localStoragePath")+"/"+v.Video.ID+".frag")
@@ -93,6 +98,7 @@ func (v *VideoService) Encode() error {
 	return nil
 }
 
+// Finish removes temporary files and generated local output for the current video.
 func (v *VideoService) Finish() error {
 	err := os.Remove(os.Getenv("localStoragePath") + "/" + v.Video.ID + ".mp4")
 	if err != nil {
@@ -117,6 +123,7 @@ func (v *VideoService) Finish() error {
 	return nil
 }
 
+// printOutput logs command output when external tools return any text.
 func printOutput(out []byte) {
 	if len(out) > 0 {
 		log.Printf("========> Output: %s\n", string(out))

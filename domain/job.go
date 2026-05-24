@@ -8,10 +8,12 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+// init configures govalidator to require struct fields by default.
 func init() {
 	govalidator.SetFieldsRequiredByDefault(true)
 }
 
+// Job represents a video processing execution and its current status.
 type Job struct {
 	ID               string    `json:"job_id" valid:"uuid" gorm:"type:uuid;primary_key"`
 	OutputBucketPath string    `json:"output_bucket_path" valid:"notnull"`
@@ -23,6 +25,7 @@ type Job struct {
 	UpdatedAt        time.Time `json:"updated_at" valid:"-"`
 }
 
+// NewJob creates and validates a new Job instance.
 func NewJob(output string, status string, video *Video) (*Job, error) {
 	job := Job{
 		OutputBucketPath: output,
@@ -41,12 +44,14 @@ func NewJob(output string, status string, video *Video) (*Job, error) {
 	return &job, nil
 }
 
+// prepare sets generated fields before persistence and validation.
 func (job *Job) prepare() {
 	job.ID = uuid.NewV4().String()
 	job.CreatedAt = time.Now()
 	job.UpdatedAt = time.Now()
 }
 
+// Validate checks the Job fields against govalidator tags.
 func (job *Job) Validate() error {
 	_, err := govalidator.ValidateStruct(job)
 

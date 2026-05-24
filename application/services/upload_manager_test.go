@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// init loads test environment variables needed for upload tests.
 func init() {
 	err := godotenv.Load("../../.env")
 	if err != nil {
@@ -17,6 +18,7 @@ func init() {
 	}
 }
 
+// TestVideoServiceUpload validates the full pipeline including upload to GCS.
 func TestVideoServiceUpload(t *testing.T) {
 	video, repository := prepare()
 

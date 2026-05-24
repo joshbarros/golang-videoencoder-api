@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestJobRepositoryDbInsert validates insert and lookup behavior for jobs.
 func TestJobRepositoryDbInsert(t *testing.T) {
 	db := database.NewDbTest()
 	defer db.Close()
@@ -36,6 +37,7 @@ func TestJobRepositoryDbInsert(t *testing.T) {
 	require.Equal(t, j.VideoID, video.ID)
 }
 
+// TestJobRepositoryDbUpdate validates status updates are persisted.
 func TestJobRepositoryDbUpdate(t *testing.T) {
 	db := database.NewDbTest()
 	defer db.Close()

@@ -12,6 +12,7 @@ import (
 	"cloud.google.com/go/storage"
 )
 
+// VideoUpload coordinates local output discovery and uploads to GCS.
 type VideoUpload struct {
 	Paths        []string
 	VideoPath    string
@@ -19,10 +20,12 @@ type VideoUpload struct {
 	Errors       []string
 }
 
+// NewVideoUpload creates an empty upload manager instance.
 func NewVideoUpload() *VideoUpload {
 	return &VideoUpload{}
 }
 
+// UploadObject uploads one local file into the configured output bucket.
 func (vu *VideoUpload) UploadObject(objectPath string, client *storage.Client, ctx context.Context) error {
 	path := strings.Split(objectPath, os.Getenv("localStoragePath")+"/")
 
@@ -46,6 +49,7 @@ func (vu *VideoUpload) UploadObject(objectPath string, client *storage.Client, c
 	return nil
 }
 
+// loadPaths walks the encoded output directory and collects uploadable files.
 func (vu *VideoUpload) loadPaths() error {
 	err := filepath.Walk(vu.VideoPath, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
@@ -62,6 +66,7 @@ func (vu *VideoUpload) loadPaths() error {
 	return nil
 }
 
+// ProcessUpload starts worker goroutines to upload discovered files concurrently.
 func (vu *VideoUpload) ProcessUpload(concurrency int, doneUpload chan string) error {
 	in := make(chan int, runtime.NumCPU())
 	returnChannel := make(chan string)
@@ -97,6 +102,7 @@ func (vu *VideoUpload) ProcessUpload(concurrency int, doneUpload chan string) er
 	return nil
 }
 
+// uploadWorker consumes file indexes and uploads each file through the shared client.
 func (vu *VideoUpload) uploadWorker(in chan int, returnChannel chan string, uploadClient *storage.Client, ctx context.Context) {
 	for x := range in {
 		err := vu.UploadObject(vu.Paths[x], uploadClient, ctx)
@@ -113,6 +119,7 @@ func (vu *VideoUpload) uploadWorker(in chan int, returnChannel chan string, uplo
 	returnChannel <- "upload complete"
 }
 
+// getClientUpload creates a GCS client and context for upload operations.
 func getClientUpload() (*storage.Client, context.Context, error) {
 	ctx := context.Background()
 

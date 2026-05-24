@@ -9,6 +9,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// Database stores runtime configuration and the active DB connection.
 type Database struct {
 	Db            *gorm.DB
 	Dsn           string
@@ -20,10 +21,12 @@ type Database struct {
 	Env           string
 }
 
+// NewDb returns an empty Database configuration.
 func NewDb() *Database {
 	return &Database{}
 }
 
+// NewDbTest creates and connects an in-memory sqlite database for tests.
 func NewDbTest() *gorm.DB {
 	dbInstance := NewDb()
 	dbInstance.Env = "test"
@@ -41,6 +44,7 @@ func NewDbTest() *gorm.DB {
 	return connection
 }
 
+// Connect opens the configured database and runs optional migrations.
 func (d *Database) Connect() (*gorm.DB, error) {
 	var err error
 

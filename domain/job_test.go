@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestNewJob verifies a job is created and validated successfully.
 func TestNewJob(t *testing.T) {
 	video := domain.NewVideo()
 	video.ID = uuid.NewV4().String()

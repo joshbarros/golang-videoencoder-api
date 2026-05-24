@@ -6,6 +6,7 @@ import (
 	"github.com/asaskevich/govalidator"
 )
 
+// Video represents an input media object and its processing jobs.
 type Video struct {
 	ID         string    `json:"encoded_video_folder" valid:"uuid" gorm:"type:uuid;primary_key"`
 	ResourceID string    `json:"resource_id" valid:"notnull" gorm:"type:varchar(255)"`
@@ -14,14 +15,17 @@ type Video struct {
 	Jobs       []*Job    `json:"-" valid:"-" gorm:"ForeignKey:VideoID"`
 }
 
+// init configures govalidator to require struct fields by default.
 func init() {
 	govalidator.SetFieldsRequiredByDefault(true)
 }
 
+// NewVideo returns an empty Video instance.
 func NewVideo() *Video {
 	return &Video{}
 }
 
+// Validate checks the Video fields against govalidator tags.
 func (video *Video) Validate() error {
 	_, err := govalidator.ValidateStruct(video)
 

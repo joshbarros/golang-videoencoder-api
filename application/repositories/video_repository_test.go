@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestVideoRepositoryDbInsert validates insert and lookup behavior for videos.
 func TestVideoRepositoryDbInsert(t *testing.T) {
 	db := database.NewDbTest()
 	defer db.Close()

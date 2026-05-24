@@ -16,8 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// defaultTestBucket is used when explicit test bucket env vars are not set.
 const defaultTestBucket = "joshbarrostest-20260523-1"
 
+// init loads environment variables and configures GCP credentials for tests.
 func init() {
 	err := godotenv.Load("../../.env")
 	if err != nil {
@@ -35,6 +37,7 @@ func init() {
 	}
 }
 
+// testSourceBucket returns the source bucket configured for integration tests.
 func testSourceBucket() string {
 	bucketName := os.Getenv("VIDEO_SOURCE_BUCKET")
 	if bucketName == "" {
@@ -44,6 +47,7 @@ func testSourceBucket() string {
 	return bucketName
 }
 
+// testOutputBucket returns the output bucket configured for integration tests.
 func testOutputBucket() string {
 	bucketName := os.Getenv("VIDEO_OUTPUT_BUCKET")
 	if bucketName == "" {
@@ -53,6 +57,7 @@ func testOutputBucket() string {
 	return bucketName
 }
 
+// prepare creates a test video and repository backed by the test database.
 func prepare() (*domain.Video, repositories.VideoRepositoryDb) {
 	db := database.NewDbTest()
 	defer db.Close()
@@ -67,6 +72,7 @@ func prepare() (*domain.Video, repositories.VideoRepositoryDb) {
 	return video, repository
 }
 
+// TestVideoServiceDownload validates the full download, fragment, encode, and cleanup flow.
 func TestVideoServiceDownload(t *testing.T) {
 	video, repository := prepare()
 
