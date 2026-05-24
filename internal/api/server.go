@@ -147,6 +147,14 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, ErrorResponse{Error: msg})
 }
 
+// writeInternalError logs the underlying error server-side and returns a
+// generic message, so internal details (e.g. raw database errors) never leak
+// to clients.
+func writeInternalError(w http.ResponseWriter, context string, err error) {
+	log.Printf("api: %s: %v", context, err)
+	writeError(w, http.StatusInternalServerError, "internal server error")
+}
+
 // logRequests logs method, path, status, and duration for each request.
 func logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
