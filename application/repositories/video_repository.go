@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"golang-videoencoder-api/domain"
 
-	"github.com/jinzhu/gorm"
 	uuid "github.com/satori/go.uuid"
+	"gorm.io/gorm"
 )
 
 // VideoRepository defines persistence operations for videos.

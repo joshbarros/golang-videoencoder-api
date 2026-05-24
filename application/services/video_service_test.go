@@ -60,7 +60,11 @@ func testOutputBucket() string {
 // prepare creates a test video and repository backed by the test database.
 func prepare() (*domain.Video, repositories.VideoRepositoryDb) {
 	db := database.NewDbTest()
-	defer db.Close()
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer sqlDB.Close()
 
 	video := domain.NewVideo()
 	video.ID = uuid.NewV4().String()

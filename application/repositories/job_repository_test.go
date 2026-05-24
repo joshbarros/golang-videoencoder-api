@@ -14,7 +14,9 @@ import (
 // TestJobRepositoryDbInsert validates insert and lookup behavior for jobs.
 func TestJobRepositoryDbInsert(t *testing.T) {
 	db := database.NewDbTest()
-	defer db.Close()
+	sqlDB, err := db.DB()
+	require.Nil(t, err)
+	defer sqlDB.Close()
 
 	video := domain.NewVideo()
 	video.ID = uuid.NewV4().String()
@@ -40,7 +42,9 @@ func TestJobRepositoryDbInsert(t *testing.T) {
 // TestJobRepositoryDbUpdate validates status updates are persisted.
 func TestJobRepositoryDbUpdate(t *testing.T) {
 	db := database.NewDbTest()
-	defer db.Close()
+	sqlDB, err := db.DB()
+	require.Nil(t, err)
+	defer sqlDB.Close()
 
 	video := domain.NewVideo()
 	video.ID = uuid.NewV4().String()

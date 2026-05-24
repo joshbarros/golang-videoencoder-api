@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"golang-videoencoder-api/domain"
 
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 )
 
 // JobRepository defines persistence operations for jobs.

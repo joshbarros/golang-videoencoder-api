@@ -4,9 +4,10 @@ import (
 	"golang-videoencoder-api/domain"
 	"log"
 
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/sqlite"
-	_ "github.com/lib/pq"
+	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 // Database stores runtime configuration and the active DB connection.
@@ -49,9 +50,9 @@ func (d *Database) Connect() (*gorm.DB, error) {
 	var err error
 
 	if d.Env != "test" {
-		d.Db, err = gorm.Open(d.DbType, d.Dsn)
+		d.Db, err = gorm.Open(postgres.Open(d.Dsn), &gorm.Config{})
 	} else {
-		d.Db, err = gorm.Open(d.DbTypeTest, d.DsnTest)
+		d.Db, err = gorm.Open(sqlite.Open(d.DsnTest), &gorm.Config{})
 	}
 
 	if err != nil {
@@ -59,13 +60,13 @@ func (d *Database) Connect() (*gorm.DB, error) {
 	}
 
 	if d.Debug {
-		d.Db.LogMode(true)
+		d.Db = d.Db.Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Info)})
 	}
 
 	if d.AutoMigrateDb {
-		d.Db.AutoMigrate(&domain.Video{}, &domain.Job{})
-		if d.Env != "test" {
-			d.Db.Model(domain.Job{}).AddForeignKey("video_id", "videos (id)", "CASCADE", "CASCADE")
+		err = d.Db.AutoMigrate(&domain.Video{}, &domain.Job{})
+		if err != nil {
+			return nil, err
 		}
 	}
 

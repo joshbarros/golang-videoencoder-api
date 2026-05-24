@@ -14,7 +14,9 @@ import (
 // TestVideoRepositoryDbInsert validates insert and lookup behavior for videos.
 func TestVideoRepositoryDbInsert(t *testing.T) {
 	db := database.NewDbTest()
-	defer db.Close()
+	sqlDB, err := db.DB()
+	require.Nil(t, err)
+	defer sqlDB.Close()
 
 	video := domain.NewVideo()
 	video.ID = uuid.NewV4().String()

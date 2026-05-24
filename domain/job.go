@@ -15,10 +15,10 @@ func init() {
 
 // Job represents a video processing execution and its current status.
 type Job struct {
-	ID               string    `json:"job_id" valid:"uuid" gorm:"type:uuid;primary_key"`
+	ID               string    `json:"job_id" valid:"uuid" gorm:"type:uuid;primaryKey"`
 	OutputBucketPath string    `json:"output_bucket_path" valid:"notnull"`
 	Status           string    `json:"status" valid:"notnull"`
-	Video            *Video    `json:"video" valid:"-"`
+	Video            *Video    `json:"video" valid:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;foreignKey:VideoID;references:ID"`
 	VideoID          string    `json:"-" valid:"-" gorm:"column:video_id;type:uuid;notnull"`
 	Error            string    `valid:"-"`
 	CreatedAt        time.Time `json:"created_at" valid:"-"`
