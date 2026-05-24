@@ -27,13 +27,19 @@ func init() {
 
 	db.AutoMigrateDb = automigrateDB
 	db.Debug = debug
-	db.DbType = os.Getenv("DB_TYPE")
 	db.Dsn = os.Getenv("DSN")
 	db.Env = os.Getenv("ENV")
 }
 
 func main() {
 	log.Println("video encoder bootstrap starting")
+
+	// Validate required configuration up front, before opening any resource,
+	// so a misconfiguration fails fast without leaking connections.
+	consumerName := requiredEnv("RABBITMQ_CONSUMER")
+	if os.Getenv("DSN") == "" {
+		log.Fatal("required environment variable is missing: DSN")
+	}
 
 	conn, err := db.Connect()
 	if err != nil {
@@ -46,10 +52,16 @@ func main() {
 	}
 	defer sqlDB.Close()
 
+	jobRepository := jobrepo.JobRepositoryDb{Db: conn}
+	videoRepository := videorepo.VideoRepositoryDb{Db: conn}
+	jobService := job.NewJobService(jobRepository, videoRepository)
+	manager := job.NewManager(jobService)
+
 	q, err := queue.NewClientFromEnv()
 	if err != nil {
 		log.Fatalf("queue configuration error: %v", err)
 	}
+	q.Prefetch = manager.Workers
 	if err := q.Connect(); err != nil {
 		log.Fatalf("rabbitmq connection error: %v", err)
 	}
@@ -64,23 +76,22 @@ func main() {
 		log.Fatalf("queue declare error: %v", err)
 	}
 
-	jobRepository := jobrepo.JobRepositoryDb{Db: conn}
-	videoRepository := videorepo.VideoRepositoryDb{Db: conn}
-	jobService := job.NewJobService(jobRepository, videoRepository)
-	manager := job.NewManager(jobService)
 	stopWorkers := manager.Start()
 	defer stopWorkers()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	consumerName := requiredEnv("RABBITMQ_CONSUMER")
-
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- manager.RunQueueConsumer(ctx, q, consumerName)
 	}()
 
+	if manager.Processor.Enabled() {
+		log.Printf("media processing enabled: source=%s output=%s", manager.Processor.SourceBucket, manager.Processor.OutputBucket)
+	} else {
+		log.Println("media processing disabled (buckets unset): creating pending jobs only")
+	}
 	log.Printf("video encoder running: queue=%s workers=%d consumer=%s", declaredQueue.Name, manager.Workers, consumerName)
 
 	sigCh := make(chan os.Signal, 1)

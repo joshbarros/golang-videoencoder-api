@@ -1,6 +1,7 @@
 package jobrepo
 
 import (
+	"errors"
 	"fmt"
 	"golang-videoencoder-api/domain"
 
@@ -33,10 +34,13 @@ func (repository JobRepositoryDb) Insert(job *domain.Job) (*domain.Job, error) {
 // Find loads a job by id and preloads its related video.
 func (repository JobRepositoryDb) Find(id string) (*domain.Job, error) {
 	var job domain.Job
-	repository.Db.Preload("Video").First(&job, "id = ?", id)
+	err := repository.Db.Preload("Video").First(&job, "id = ?", id).Error
 
-	if job.ID == "" {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("job does not exist")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find job: %w", err)
 	}
 
 	return &job, nil
@@ -44,7 +48,7 @@ func (repository JobRepositoryDb) Find(id string) (*domain.Job, error) {
 
 // Update saves the current job fields to the database.
 func (repository JobRepositoryDb) Update(job *domain.Job) (*domain.Job, error) {
-	err := repository.Db.Save(&job).Error
+	err := repository.Db.Save(job).Error
 
 	if err != nil {
 		return nil, err

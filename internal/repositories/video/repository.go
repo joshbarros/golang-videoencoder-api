@@ -1,6 +1,7 @@
 package videorepo
 
 import (
+	"errors"
 	"fmt"
 	"golang-videoencoder-api/domain"
 
@@ -42,10 +43,13 @@ func (repository VideoRepositoryDb) Insert(video *domain.Video) (*domain.Video, 
 // Find loads a video by id and preloads associated jobs.
 func (repository VideoRepositoryDb) Find(id string) (*domain.Video, error) {
 	var video domain.Video
-	repository.Db.Preload("Jobs").First(&video, "id = ?", id)
+	err := repository.Db.Preload("Jobs").First(&video, "id = ?", id).Error
 
-	if video.ID == "" {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("video does not exist")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find video: %w", err)
 	}
 
 	return &video, nil

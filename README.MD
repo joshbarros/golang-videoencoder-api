@@ -60,7 +60,6 @@ What is working now:
 Use `.env.example` as reference.
 
 Main variables:
-- `DB_TYPE`
 - `DSN`
 - `ENV`
 - `DEBUG`
@@ -73,6 +72,7 @@ Main variables:
 - `RABBITMQ_QUEUE`
 - `RABBITMQ_CONSUMER`
 - `CONCURRENCY_WORKERS`
+- `PROCESS_TIMEOUT` (optional, Go duration; default `30m`)
 
 ### Credentials
 

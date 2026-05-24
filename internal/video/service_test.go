@@ -1,6 +1,9 @@
+//go:build integration
+
 package video_test
 
 import (
+	"context"
 	"golang-videoencoder-api/domain"
 	"golang-videoencoder-api/internal/database"
 	videorepo "golang-videoencoder-api/internal/repositories/video"
@@ -85,13 +88,15 @@ func TestVideoServiceDownload(t *testing.T) {
 	videoService.Video = v
 	videoService.VideoRepository = repository
 
-	err = videoService.Download(testSourceBucket())
+	ctx := context.Background()
+
+	err = videoService.Download(ctx, testSourceBucket())
 	require.Nil(t, err)
 
-	err = videoService.Fragment()
+	err = videoService.Fragment(ctx)
 	require.Nil(t, err)
 
-	err = videoService.Encode()
+	err = videoService.Encode(ctx)
 	require.Nil(t, err)
 
 	err = videoService.Finish()

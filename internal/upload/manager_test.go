@@ -1,6 +1,9 @@
+//go:build integration
+
 package upload_test
 
 import (
+	"context"
 	"golang-videoencoder-api/domain"
 	"golang-videoencoder-api/internal/database"
 	videorepo "golang-videoencoder-api/internal/repositories/video"
@@ -82,22 +85,22 @@ func TestVideoServiceUpload(t *testing.T) {
 	videoService.Video = v
 	videoService.VideoRepository = repository
 
-	err = videoService.Download(testSourceBucket())
+	ctx := context.Background()
+
+	err = videoService.Download(ctx, testSourceBucket())
 	require.Nil(t, err)
 
-	err = videoService.Fragment()
+	err = videoService.Fragment(ctx)
 	require.Nil(t, err)
 
-	err = videoService.Encode()
+	err = videoService.Encode(ctx)
 	require.Nil(t, err)
 
 	videoUpload := upload.NewVideoUpload()
 	videoUpload.OutputBucket = testOutputBucket()
+	videoUpload.OutputPrefix = v.ID
 	videoUpload.VideoPath = os.Getenv("localStoragePath") + "/" + v.ID
 
-	doneUpload := make(chan string)
-	go videoUpload.ProcessUpload(50, doneUpload)
-
-	result := <-doneUpload
-	require.Equal(t, result, "upload complete")
+	err = videoUpload.ProcessUpload(ctx, 50)
+	require.Nil(t, err)
 }

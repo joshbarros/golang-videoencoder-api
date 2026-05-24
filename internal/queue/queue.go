@@ -13,6 +13,9 @@ import (
 type Client struct {
 	URL       string
 	QueueName string
+	// Prefetch bounds the number of unacknowledged deliveries the broker will
+	// push to a consumer at once (channel QoS). 0 leaves it unbounded.
+	Prefetch int
 
 	Connection *amqp.Connection
 	Channel    *amqp.Channel
@@ -41,7 +44,7 @@ func NewClientFromEnv() (*Client, error) {
 	}, nil
 }
 
-// Connect opens the RabbitMQ connection and channel.
+// Connect opens the RabbitMQ connection and channel and applies QoS.
 func (c *Client) Connect() error {
 	conn, err := amqp.Dial(c.URL)
 	if err != nil {
@@ -54,16 +57,45 @@ func (c *Client) Connect() error {
 		return err
 	}
 
+	if c.Prefetch > 0 {
+		if err := ch.Qos(c.Prefetch, 0, false); err != nil {
+			_ = ch.Close()
+			_ = conn.Close()
+			return err
+		}
+	}
+
 	c.Connection = conn
 	c.Channel = ch
 
 	return nil
 }
 
-// Declare creates the queue if it does not exist.
+// Reconnect closes any existing connection and opens a fresh one.
+func (c *Client) Reconnect() error {
+	_ = c.Close()
+	return c.Connect()
+}
+
+// Declare creates the work queue along with a dead-letter exchange and queue.
+// Messages the consumer rejects (Nack without requeue) are routed to
+// "<queue>.dlq" instead of being discarded.
 func (c *Client) Declare() (amqp.Queue, error) {
 	if c.Channel == nil {
 		return amqp.Queue{}, fmt.Errorf("rabbitmq channel is not initialized")
+	}
+
+	deadLetterExchange := c.QueueName + ".dlx"
+	deadLetterQueue := c.QueueName + ".dlq"
+
+	if err := c.Channel.ExchangeDeclare(deadLetterExchange, "fanout", true, false, false, false, nil); err != nil {
+		return amqp.Queue{}, fmt.Errorf("declare dead-letter exchange: %w", err)
+	}
+	if _, err := c.Channel.QueueDeclare(deadLetterQueue, true, false, false, false, nil); err != nil {
+		return amqp.Queue{}, fmt.Errorf("declare dead-letter queue: %w", err)
+	}
+	if err := c.Channel.QueueBind(deadLetterQueue, "", deadLetterExchange, false, nil); err != nil {
+		return amqp.Queue{}, fmt.Errorf("bind dead-letter queue: %w", err)
 	}
 
 	return c.Channel.QueueDeclare(
@@ -72,7 +104,7 @@ func (c *Client) Declare() (amqp.Queue, error) {
 		false,
 		false,
 		false,
-		nil,
+		amqp.Table{"x-dead-letter-exchange": deadLetterExchange},
 	)
 }
 
