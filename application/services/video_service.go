@@ -28,6 +28,7 @@ func NewVideoService() (*VideoService, error) {
 
 func (v *VideoService) Download(bucketName string) error {
 	ctx := context.Background()
+
 	reader, err := v.storageClient.Bucket(bucketName).Object(v.Video.FilePath).NewReader(ctx)
 	if err != nil {
 		return err
@@ -61,6 +62,7 @@ func (v *VideoService) Fragment() error {
 
 	cmd := exec.Command("mp4fragment", source, target)
 	output, err := cmd.CombinedOutput()
+
 	if err != nil {
 		return err
 	}

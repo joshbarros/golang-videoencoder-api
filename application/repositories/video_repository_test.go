@@ -17,7 +17,7 @@ func TestVideoRepositoryDbInsert(t *testing.T) {
 
 	video := domain.NewVideo()
 	video.ID = uuid.NewV4().String()
-	video.FilePath = "C://"
+	video.FilePath = "path"
 	video.CreatedAt = time.Now()
 
 	repository := repositories.VideoRepositoryDb{Db: db}
