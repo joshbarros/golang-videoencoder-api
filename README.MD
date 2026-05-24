@@ -12,10 +12,12 @@ What is working now:
 - End-to-end service tests passing in Docker container.
 - Upload completion signaling fixed to wait for all workers.
 - Core packages and tests documented with GoDoc comments.
-
-Important note:
-- Current `cmd/main.go` is still a minimal placeholder (`Hello World`).
-- This repository currently provides the processing core and tests, not a full production runtime service yet.
+- Runtime bootstrap in `cmd/main.go` is active:
+  - loads env,
+  - connects to Postgres,
+  - connects and declares RabbitMQ queue,
+  - starts job worker manager and queue consumer,
+  - supports graceful shutdown on SIGINT/SIGTERM.
 
 ## Project Structure
 
@@ -36,7 +38,7 @@ Important note:
 - `internal/queue/`
   - RabbitMQ client wrapper
 - `cmd/main.go`
-  - entrypoint placeholder
+  - runtime bootstrap and queue consumer process
 
 ## Stack
 
@@ -67,6 +69,10 @@ Main variables:
 - `GOOGLE_APPLICATION_CREDENTIALS`
 - `VIDEO_SOURCE_BUCKET`
 - `VIDEO_OUTPUT_BUCKET`
+- `RABBITMQ_URL`
+- `RABBITMQ_QUEUE`
+- `RABBITMQ_CONSUMER`
+- `CONCURRENCY_WORKERS`
 
 ### Credentials
 
@@ -98,6 +104,12 @@ docker compose exec app /usr/local/go/bin/go test -v -count=1 ./internal/video/.
 docker compose exec app /usr/local/go/bin/go test -count=1 ./...
 ```
 
+### 5) Run runtime consumer service (inside container)
+
+```bash
+docker compose exec app /usr/local/go/bin/go run ./cmd/main.go
+```
+
 ## Manual Upload Smoke Check (No Unit Test)
 
 You can manually validate upload behavior by creating a temporary file under `/tmp/<folder>` and invoking `VideoUpload` flow from a small Go script in the container, then confirming object existence in GCS.
@@ -106,7 +118,7 @@ This was validated during development and confirmed object creation + cleanup in
 
 ## Known Gaps Before Full Production Runtime
 
-- `cmd/main.go` is still a placeholder; no HTTP/consumer runtime yet.
+- No HTTP API layer yet (current runtime is queue consumer oriented).
 - No health/readiness endpoints yet.
 - No structured retry/backoff policy for external operations.
 - No versioned DB migration framework yet.
