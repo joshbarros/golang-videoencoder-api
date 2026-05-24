@@ -1,4 +1,4 @@
-package repositories
+package videorepo
 
 import (
 	"fmt"

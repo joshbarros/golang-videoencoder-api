@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	cloud.google.com/go/storage v1.56.0
+	github.com/rabbitmq/amqp091-go v1.11.0
 	github.com/sirupsen/logrus v1.9.3
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0

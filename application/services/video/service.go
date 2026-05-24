@@ -1,8 +1,8 @@
-package services
+package video
 
 import (
 	"context"
-	"golang-videoencoder-api/application/repositories"
+	videorepo "golang-videoencoder-api/application/repositories/video"
 	"golang-videoencoder-api/domain"
 	"log"
 	"os"
@@ -14,7 +14,7 @@ import (
 // VideoService orchestrates download, packaging, and cleanup for a video.
 type VideoService struct {
 	Video           *domain.Video
-	VideoRepository repositories.VideoRepository
+	VideoRepository videorepo.VideoRepository
 	storageClient   *storage.Client
 }
 

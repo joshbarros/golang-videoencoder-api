@@ -1,7 +1,8 @@
-package repositories_test
+package jobrepo_test
 
 import (
-	"golang-videoencoder-api/application/repositories"
+	jobrepo "golang-videoencoder-api/application/repositories/job"
+	videorepo "golang-videoencoder-api/application/repositories/video"
 	"golang-videoencoder-api/domain"
 	"golang-videoencoder-api/framework/database"
 	"testing"
@@ -23,13 +24,13 @@ func TestJobRepositoryDbInsert(t *testing.T) {
 	video.FilePath = "path"
 	video.CreatedAt = time.Now()
 
-	repository := repositories.VideoRepositoryDb{Db: db}
+	repository := videorepo.VideoRepositoryDb{Db: db}
 	repository.Insert(video)
 
 	job, err := domain.NewJob("output_path", "Pending", video)
 	require.Nil(t, err)
 
-	jobRepository := repositories.JobRepositoryDb{Db: db}
+	jobRepository := jobrepo.JobRepositoryDb{Db: db}
 	jobRepository.Insert(job)
 
 	j, err := jobRepository.Find(job.ID)
@@ -51,13 +52,13 @@ func TestJobRepositoryDbUpdate(t *testing.T) {
 	video.FilePath = "path"
 	video.CreatedAt = time.Now()
 
-	repository := repositories.VideoRepositoryDb{Db: db}
+	repository := videorepo.VideoRepositoryDb{Db: db}
 	repository.Insert(video)
 
 	job, err := domain.NewJob("output_path", "Pending", video)
 	require.Nil(t, err)
 
-	jobRepository := repositories.JobRepositoryDb{Db: db}
+	jobRepository := jobrepo.JobRepositoryDb{Db: db}
 	jobRepository.Insert(job)
 
 	job.Status = "Complete"

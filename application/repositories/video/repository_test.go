@@ -1,7 +1,7 @@
-package repositories_test
+package videorepo_test
 
 import (
-	"golang-videoencoder-api/application/repositories"
+	videorepo "golang-videoencoder-api/application/repositories/video"
 	"golang-videoencoder-api/domain"
 	"golang-videoencoder-api/framework/database"
 	"testing"
@@ -23,7 +23,7 @@ func TestVideoRepositoryDbInsert(t *testing.T) {
 	video.FilePath = "path"
 	video.CreatedAt = time.Now()
 
-	repository := repositories.VideoRepositoryDb{Db: db}
+	repository := videorepo.VideoRepositoryDb{Db: db}
 	repository.Insert(video)
 
 	v, err := repository.Find(video.ID)

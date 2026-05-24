@@ -1,8 +1,9 @@
-package services
+package job
 
 import (
 	"fmt"
-	"golang-videoencoder-api/application/repositories"
+	jobrepo "golang-videoencoder-api/application/repositories/job"
+	videorepo "golang-videoencoder-api/application/repositories/video"
 	"golang-videoencoder-api/domain"
 )
 
@@ -19,12 +20,12 @@ const (
 
 // JobService coordinates job lifecycle operations and persistence.
 type JobService struct {
-	JobRepository   repositories.JobRepository
-	VideoRepository repositories.VideoRepository
+	JobRepository   jobrepo.JobRepository
+	VideoRepository videorepo.VideoRepository
 }
 
 // NewJobService creates a JobService with the required repositories.
-func NewJobService(jobRepository repositories.JobRepository, videoRepository repositories.VideoRepository) *JobService {
+func NewJobService(jobRepository jobrepo.JobRepository, videoRepository videorepo.VideoRepository) *JobService {
 	return &JobService{
 		JobRepository:   jobRepository,
 		VideoRepository: videoRepository,

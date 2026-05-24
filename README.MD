@@ -19,11 +19,16 @@ Important note:
 
 ## Project Structure
 
-- `application/services/`
-  - `video_service.go`: download, fragment, encode, cleanup
-  - `upload_manager.go`: concurrent upload manager for output artifacts
-- `application/repositories/`
-  - persistence adapters for `Video` and `Job`
+- `application/services/video/`
+  - `service.go`: download, fragment, encode, cleanup
+- `application/services/upload/`
+  - `manager.go`: concurrent upload manager for output artifacts
+- `application/services/job/`
+  - `service.go`, `worker.go`, `manager.go`: job lifecycle and worker contracts
+- `application/repositories/video/`
+  - `repository.go`: persistence adapter for `Video`
+- `application/repositories/job/`
+  - `repository.go`: persistence adapter for `Job`
 - `domain/`
   - core entities and validation (`Video`, `Job`)
 - `framework/database/`
@@ -38,7 +43,7 @@ Important note:
 - Bento4 (`mp4fragment`, `mp4dash`)
 - PostgreSQL (dev/runtime dependency via compose)
 - RabbitMQ (provisioned in compose)
-- GORM v1
+- GORM v2
 
 ## Prerequisites
 
@@ -82,7 +87,7 @@ docker compose up -d
 ### 3) Run service tests (inside container)
 
 ```bash
-docker compose exec app /usr/local/go/bin/go test -v -count=1 ./application/services/...
+docker compose exec app /usr/local/go/bin/go test -v -count=1 ./application/services/video/... ./application/services/upload/... ./application/services/job/...
 ```
 
 ### 4) Run full test suite (inside container)
