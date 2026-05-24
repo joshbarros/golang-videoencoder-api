@@ -88,6 +88,7 @@ func (vu *VideoUpload) ProcessUpload(concurrency int, doneUpload chan string) er
 	if err != nil {
 		return err
 	}
+	defer uploadClient.Close()
 
 	workerCount := concurrency
 	if workerCount <= 0 {

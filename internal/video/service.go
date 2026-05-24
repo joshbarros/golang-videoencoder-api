@@ -28,6 +28,15 @@ func NewVideoService() (*VideoService, error) {
 	return &VideoService{storageClient: storageClient}, nil
 }
 
+// Close releases the GCS client held by the service.
+func (v *VideoService) Close() error {
+	if v.storageClient != nil {
+		return v.storageClient.Close()
+	}
+
+	return nil
+}
+
 // Download fetches the source media from the provided GCS bucket into local storage.
 func (v *VideoService) Download(bucketName string) error {
 	ctx := context.Background()

@@ -16,18 +16,21 @@ const defaultWorkerConcurrency = 1
 type Manager struct {
 	JobService *JobService
 	Workers    int
+	Processor  *Processor
 
 	MessageChannel chan []byte
 	ResultChannel  chan JobWorkerResult
 }
 
-// NewManager builds a manager with channels and worker count from env.
+// NewManager builds a manager with channels, worker count, and a media
+// processor configured from env.
 func NewManager(jobService *JobService) *Manager {
 	workers := workerConcurrencyFromEnv()
 
 	return &Manager{
 		JobService:     jobService,
 		Workers:        workers,
+		Processor:      NewProcessorFromEnv(jobService),
 		MessageChannel: make(chan []byte),
 		ResultChannel:  make(chan JobWorkerResult),
 	}
@@ -45,7 +48,7 @@ func (m *Manager) Start() (stop func()) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			JobWorker(m.MessageChannel, m.ResultChannel, m.JobService)
+			JobWorker(m.MessageChannel, m.ResultChannel, m.JobService, m.Processor)
 		}()
 	}
 
@@ -58,7 +61,7 @@ func (m *Manager) Start() (stop func()) {
 				continue
 			}
 			if result.Job != nil {
-				log.Printf("job created: id=%s video_id=%s status=%s", result.Job.ID, result.Job.VideoID, result.Job.Status)
+				log.Printf("job processed: id=%s video_id=%s status=%s", result.Job.ID, result.Job.VideoID, result.Job.Status)
 			}
 		}
 	}()

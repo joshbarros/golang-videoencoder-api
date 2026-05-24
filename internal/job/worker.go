@@ -19,8 +19,9 @@ type JobWorkerResult struct {
 	Error   string
 }
 
-// JobWorker consumes raw payloads, validates input, and creates pending jobs.
-func JobWorker(messageChannel <-chan []byte, returnChannel chan<- JobWorkerResult, jobService *JobService) {
+// JobWorker consumes raw payloads, validates input, creates a pending job, and
+// (when the processor is enabled) runs the full media pipeline to completion.
+func JobWorker(messageChannel <-chan []byte, returnChannel chan<- JobWorkerResult, jobService *JobService, processor *Processor) {
 	for payload := range messageChannel {
 		result := JobWorkerResult{Payload: payload}
 
@@ -39,6 +40,15 @@ func JobWorker(messageChannel <-chan []byte, returnChannel chan<- JobWorkerResul
 		}
 
 		result.Job = job
+
+		if processor.Enabled() {
+			if perr := processor.Run(job); perr != nil {
+				result.Error = perr.Error()
+			} else {
+				job.Status = JobStatusCompleted
+			}
+		}
+
 		returnChannel <- result
 	}
 }
